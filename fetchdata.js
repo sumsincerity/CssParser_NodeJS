@@ -219,6 +219,11 @@ async function parseSite(siteConfig) {
 async function runParser() {
     const dataDir = path.join(process.cwd(), 'data');
 
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`Создана папка: ${dataDir}`);
+    }
+
     for (const siteConfig of sitesConfig) {
         const siteResults = await parseSite(siteConfig);
 
