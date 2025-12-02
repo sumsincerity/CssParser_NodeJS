@@ -5,6 +5,8 @@ const path = require('path');
 const { load } = require('cheerio');
 const { URL } = require("url");
 
+const { Source, Article, Job } = require('./models');
+
 
 const sitesConfig = [
     {
@@ -216,28 +218,132 @@ async function parseSite(siteConfig) {
     }
 }
 
-async function runParser() {
-    const dataDir = path.join(process.cwd(), 'data');
+async function runScheduledJob(sourceName) {
+  const siteConfig = sitesConfig.find((s) => s.name === sourceName);
+  if (!siteConfig) {
+    console.error(`Источник не найден: ${sourceName}`);
+    return;
+  }
 
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`Создана папка: ${dataDir}`);
+  const runningJob = await Job.findOne({
+    where: {
+      source_name: sourceName,
+      status: ['pending', 'running'],
+    },
+  });
+
+  if (runningJob) {
+    console.log(`Задача для ${sourceName} уже выполняется (ID: ${runningJob.id})`);
+    return;
+  }
+
+  const job = await Job.create({
+    source_name: sourceName,
+    status: 'running',
+    started_at: new Date(),
+  });
+
+  console.log(`Запуск задачи для ${sourceName} (Job ID: ${job.id})`);
+
+  try {
+    let source = await Source.findOne({ where: { name: sourceName } });
+    if (!source) {
+      source = await Source.create({ name: sourceName, url: siteConfig.url });
     }
 
-    for (const siteConfig of sitesConfig) {
-        const siteResults = await parseSite(siteConfig);
+    // Парсим
+    const siteResults = await parseSite(siteConfig);
+    let savedCount = 0;
 
-        const fileName = `${siteConfig.name}.yaml`;
-        const filePath = path.join(dataDir, fileName);
-
-        const yamlString = yaml.stringify(siteResults, { lineWidth: -1 });
-        fs.writeFileSync(filePath, yamlString);
-        console.log(`Результаты для ${siteConfig.url} сохранены в ${filePath}`);
-
-        await sleep(2000);
+    for (const item of siteResults) {
+      if (!item.link) continue;
+      await Article.create({
+        source_id: source.id,
+        title: item.title || null,
+        link: item.link,
+        content: item.content || item.description || null,
+        full_content: item.fullContent || null,
+        image_url: item.image || null,
+        author: item.author || null,
+        category: item.overtitle || item.category || null,
+        raw_data: item,
+        fetched_at: new Date(),
+      });
+      savedCount++;
     }
 
-    console.log('Конец парсинга');
+    await job.update({
+      status: 'success',
+      finished_at: new Date(),
+      articles_count: savedCount,
+    });
+
+    console.log(`Успешно: ${sourceName}, собрано ${savedCount} статей (Job ID: ${job.id})`);
+  } catch (error) {
+    await job.update({
+      status: 'failed',
+      finished_at: new Date(),
+      error: error.message,
+    });
+    console.error(`Ошибка в задаче ${sourceName} (Job ID: ${job.id}):`, error.message);
+  }
 }
 
-runParser().catch(console.error);
+
+async function runParser() {
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  try {
+    await Source.sequelize.authenticate();
+    console.log('Подключение к postgres успешно');
+
+    for (const siteConfig of sitesConfig) {
+      console.log(`Обработка источника: ${siteConfig.name} `);
+
+      let source = await Source.findOne({ where: { name: siteConfig.name } });
+      if (!source) {
+        source = await Source.create({ name: siteConfig.name, url: siteConfig.url });
+        console.log(`Источник создан: ${siteConfig.name}`);
+      }
+
+      const siteResults = await parseSite(siteConfig);
+
+      let savedCount = 0;
+      for (const item of siteResults) {
+        if (!item.link) continue;
+
+        await Article.create({
+          source_id: source.id,
+          title: item.title || null,
+          link: item.link,
+          content: item.content || item.description || null,
+          full_content: item.fullContent || null,
+          image_url: item.image || null,
+          author: item.author || null,
+          category: item.overtitle || item.category || null,
+          raw_data: item,
+          fetched_at: new Date(),
+        });
+        savedCount++;
+      }
+
+      console.log(`Сохранено ${savedCount} статей из ${siteConfig.name}`);
+      await sleep(2000);
+    }
+
+    console.log('Парсинг и сохранение завершены.');
+  } catch (error) {
+    console.error('Ошибка в runParser:', error);
+  } finally {
+    await Source.sequelize.close();
+  }
+}
+
+module.exports = {
+  sitesConfig,
+  runParser,
+  runScheduledJob,
+};

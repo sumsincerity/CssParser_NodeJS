@@ -1,0 +1,396 @@
+<!-- public/stats.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Статистика СМИ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #f8fafc 0%, #eef2ff 60%, #f8fafc 100%);
+    }
+    .chart-card {
+      height: 100%;
+    }
+    .chart-container {
+      height: 360px;
+    }
+    .summary-card {
+      border: none;
+      border-radius: 1rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(4px);
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .summary-value {
+      font-size: 2.4rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .badge-soft {
+      background: rgba(99, 102, 241, 0.1);
+      color: #4c1d95;
+    }
+    .data-updated {
+      font-size: 0.9rem;
+      color: #475569;
+    }
+    @media (max-width: 767px) {
+      .chart-container {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+      <div>
+        <h1 class="fw-bold mb-1">📊 Панель итальянских медиа</h1>
+        <p class="text-muted mb-0">Агрегированные метрики по результатам фонового парсинга</p>
+      </div>
+      <span class="data-updated" id="lastUpdated">Обновление данных…</span>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="p-4 summary-card h-100">
+          <p class="text-uppercase text-muted small mb-2">Всего статей</p>
+          <div class="summary-value text-primary" id="totalArticles">—</div>
+          <span class="badge badge-soft mt-3">Сумма по всем источникам</span>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="p-4 summary-card h-100">
+          <p class="text-uppercase text-muted small mb-2">Активных источников</p>
+          <div class="summary-value text-success" id="activeSources">—</div>
+          <span class="badge badge-soft mt-3">Сайты с данными</span>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="p-4 summary-card h-100">
+          <p class="text-uppercase text-muted small mb-2">Средняя длина</p>
+          <div class="summary-value text-warning" id="avgLengthOverall">—</div>
+          <span class="badge badge-soft mt-3">Символов в полном тексте</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-3">
+      <!-- <div class="col-lg-6">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Количество статей по источникам</div>
+          <div class="card-body">
+            <div class="chart-container">
+            <canvas id="sourcesChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div> -->
+      <div class="col-lg-6">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Уникальные статьи по источникам</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="uniqueChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Средняя длина текста (символы)</div>
+          <div class="card-body">
+            <div class="chart-container">
+            <canvas id="lengthChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-3">
+      <div class="col-lg-8">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Динамика публикаций (последние 14 дней)</div>
+      <div class="card-body">
+            <div class="chart-container">
+        <canvas id="timelineChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Заполненность контента</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="contentChart"></canvas>
+            </div>
+            <div class="mt-3">
+              <p class="mb-1 small text-muted">Всего статей: <span id="contentTotal">—</span></p>
+              <p class="mb-1 small text-muted">С полным текстом: <span id="contentWith">—</span></p>
+              <p class="mb-0 small text-muted">Без полного текста: <span id="contentWithout">—</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold">Частота публикаций по дням недели</div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="weekdayChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card chart-card">
+          <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+            <span>Самые частые слова в заголовках</span>
+            <small class="text-muted">300 последних публикаций</small>
+          </div>
+          <div class="card-body">
+            <div class="chart-container">
+              <canvas id="keywordsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function formatNumber(value) {
+      return typeof value === 'number'
+        ? value.toLocaleString('ru-RU')
+        : '—';
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Request failed: ${url} (${res.status})`);
+      }
+      return res.json();
+    }
+
+    function setSummary({ totalArticles, activeSources, avgLength, contentStatus }) {
+      document.getElementById('totalArticles').textContent = formatNumber(totalArticles);
+      document.getElementById('activeSources').textContent = formatNumber(activeSources);
+      document.getElementById('avgLengthOverall').textContent = formatNumber(avgLength);
+
+      const totalContent = contentStatus.withContent + contentStatus.withoutContent;
+      document.getElementById('contentTotal').textContent = formatNumber(totalContent);
+      document.getElementById('contentWith').textContent = formatNumber(contentStatus.withContent);
+      document.getElementById('contentWithout').textContent = formatNumber(contentStatus.withoutContent);
+      document.getElementById('lastUpdated').textContent = `Обновлено: ${new Date().toLocaleString('ru-RU')}`;
+    }
+
+    function buildSourcesChart(ctx, data) {
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => d.source),
+          datasets: [{
+            label: 'Статей собрано',
+            data: data.map(d => d.count),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildLengthChart(ctx, data) {
+      return new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: data.map(d => d.source),
+          datasets: [{
+            label: 'Средняя длина (символы)',
+            data: data.map(d => d.avgLength),
+            backgroundColor: 'rgba(75, 192, 192, 0.25)',
+            borderColor: 'rgba(75, 192, 192, 0.8)',
+            pointBackgroundColor: 'rgba(75, 192, 192, 1)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { r: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function buildUniqueChart(ctx, data) {
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => d.source),
+          datasets: [{
+            label: 'Уникальные статьи',
+            data: data.map(d => d.uniqueCount),
+            backgroundColor: 'rgba(59, 130, 246, 0.7)'
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { beginAtZero: true }
+          }
+        }
+      });
+    }
+    function buildTimelineChart(ctx, data) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: data.map(d => d.day),
+          datasets: [{
+            label: 'Новых статей в день',
+            data: data.map(d => d.count),
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.15)',
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildContentChart(ctx, contentStatus) {
+      return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['С полным текстом', 'Без полного текста'],
+          datasets: [{
+            data: [contentStatus.withContent, contentStatus.withoutContent],
+            backgroundColor: ['rgba(34, 197, 94, 0.7)', 'rgba(148, 163, 184, 0.7)'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+    }
+
+    function buildWeekdayChart(ctx, data) {
+      const weekdays = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => weekdays[d.dow]),
+          datasets: [{
+            label: 'Публикаций',
+            data: data.map(d => d.count),
+            backgroundColor: 'rgba(129, 140, 248, 0.7)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function buildKeywordsChart(ctx, data) {
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(d => d.word),
+          datasets: [{
+            label: 'Упоминаний в заголовках',
+            data: data.map(d => d.count),
+            backgroundColor: 'rgba(16, 185, 129, 0.7)'
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { x: { beginAtZero: true } }
+        }
+      });
+    }
+
+    async function loadDashboard() {
+      try {
+        const [
+          sourcesData,
+          lengthData,
+          timelineData,
+          weekdayData,
+          keywordsData,
+          contentStatus,
+          uniqueData
+        ] = await Promise.all([
+          fetchJson('/api/stats/sources-count'),
+          fetchJson('/api/stats/avg-content-length'),
+          fetchJson('/api/stats/publications-daily'),
+          fetchJson('/api/stats/publications-by-weekday'),
+          fetchJson('/api/stats/top-title-words'),
+          fetchJson('/api/stats/content-status'),
+          fetchJson('/api/stats/unique-articles')
+        ]);
+
+        const totalArticles = sourcesData.reduce((acc, item) => acc + item.count, 0);
+        const activeSources = sourcesData.length;
+        const avgLength = lengthData.length
+          ? Math.round(lengthData.reduce((acc, item) => acc + item.avgLength, 0) / lengthData.length)
+          : 0;
+
+        setSummary({ totalArticles, activeSources, avgLength, contentStatus });
+
+        // buildSourcesChart(document.getElementById('sourcesChart'), sourcesData);
+        buildLengthChart(document.getElementById('lengthChart'), lengthData);
+        buildTimelineChart(document.getElementById('timelineChart'), timelineData);
+        buildContentChart(document.getElementById('contentChart'), contentStatus);
+        buildWeekdayChart(document.getElementById('weekdayChart'), weekdayData);
+        buildKeywordsChart(document.getElementById('keywordsChart'), keywordsData);
+        buildUniqueChart(document.getElementById('uniqueChart'), uniqueData);
+      } catch (error) {
+        console.error('Ошибка загрузки панели:', error);
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger mt-4';
+        alert.textContent = 'Не удалось загрузить статистику. Попробуйте обновить страницу позже.';
+        document.querySelector('.container').appendChild(alert);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

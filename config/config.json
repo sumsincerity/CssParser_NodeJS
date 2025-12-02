@@ -1,0 +1,10 @@
+{
+  "development": {
+    "username": "devuser",
+    "password": "devpass",
+    "database": "itasite",
+    "host": "localhost",
+    "dialect": "postgres",
+    "port": 5432
+  }
+}
