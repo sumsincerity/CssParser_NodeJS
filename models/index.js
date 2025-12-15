@@ -5,12 +5,15 @@ const { Sequelize } = require('sequelize');
 const configPath = path.resolve(__dirname, '..', 'config', 'config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))['development'];
 
+// Используйте переменную окружения DB_HOST, если задана, иначе значение из config.json
+const dbHost = process.env.DB_HOST || config.host;
+
 const sequelize = new Sequelize(
   config.database,
   config.username,
   config.password,
   {
-    host: config.host,
+    host: dbHost,
     port: config.port,
     dialect: config.dialect,
     logging: config.logging || false,

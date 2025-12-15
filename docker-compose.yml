@@ -18,5 +18,19 @@ services:
     restart: always
     command: node scheduler.js
 
+  server:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=devuser
+      - DB_PASSWORD=devpass
+      - DB_NAME=itasite
+    restart: always
+    command: node server.js
+
 volumes:
   pgdata:

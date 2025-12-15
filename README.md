@@ -23,6 +23,7 @@
 Для запуска проекта выполните:
 ```bash
 node fetchdata.js
+last version - docker compose up -d and node server.js
 ```
 
 ## Использование
@@ -31,4 +32,4 @@ node fetchdata.js
 3. Результаты парсинга сохраняются в файлы.
 
 ## Скрипты
-- `node fetchdata.js` — запуск основного скрипта для парсинга данных.
+- `docker compose up -d --build`: Запускает проект в Docker контейнере.

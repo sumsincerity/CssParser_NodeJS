@@ -1,4 +1,4 @@
-const { Source } = require('./models'); // чтобы проверить подключение
+const { Source } = require('./models');
 const cron = require('node-cron');
 const { sitesConfig, runScheduledJob } = require('./fetchdata');
 

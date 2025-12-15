@@ -3,7 +3,7 @@
     "username": "devuser",
     "password": "devpass",
     "database": "itasite",
-    "host": "localhost",
+    "host": "db",
     "dialect": "postgres",
     "port": 5432
   }
